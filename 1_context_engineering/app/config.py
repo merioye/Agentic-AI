@@ -45,10 +45,10 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
 
     # --- Observability ---
-    langsmith_tracing: bool = Field(default=True)
+    langsmith_tracing_v2: bool = Field(default=True)
     langsmith_endpoint: str = Field(default="https://api.smith.langchain.com")
     langsmith_api_key: str = Field(default="", min_length=10)
-    langsmith_project: str = Field(default="Context Engineering")
+    langsmith_project: str = Field(default="Agentic AI")
 
 
 @lru_cache

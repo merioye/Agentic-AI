@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reasoning Router Console</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap");
+
+      :root {
+        --bg: #12141c;
+        --panel: #191c27;
+        --panel-line: #2a2e3d;
+        --text: #e8e6e1;
+        --text-dim: #8b8fa3;
+        --accent: #e0a458;
+        --accent-dim: #7a5a2c;
+        --agent: #4fa3a0;
+        --standard: #5fbf8f;
+        --high: #e0a458;
+        --xhigh: #c9603e;
+        --max: #e05f8f;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        --sans: "Inter", -apple-system, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        display: flex;
+        justify-content: center;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: 900px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        padding: 18px 24px 14px;
+        border-bottom: 1px solid var(--panel-line);
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        text-transform: uppercase;
+      }
+      h1 {
+        font-size: 19px;
+        margin: 4px 0 12px;
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      select,
+      input[type="text"] {
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--panel-line);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .log {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .turn {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .turn.user {
+        flex-direction: row-reverse;
+      }
+      .bubble {
+        max-width: 78%;
+        padding: 10px 14px;
+        border-radius: 10px;
+        line-height: 1.55;
+        font-size: 14.5px;
+        white-space: pre-wrap;
+      }
+      .turn.user .bubble {
+        background: var(--panel);
+        border: 1px solid var(--panel-line);
+      }
+      .turn.agent .bubble {
+        background: rgba(79, 163, 160, 0.1);
+        border: 1px solid rgba(79, 163, 160, 0.35);
+      }
+      .who {
+        font-family: var(--mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+      }
+      .turn.agent .who {
+        color: var(--agent);
+      }
+
+      .effort-badge {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-top: 6px;
+        margin-right: 6px;
+      }
+      .effort-standard {
+        background: rgba(95, 191, 143, 0.15);
+        color: var(--standard);
+        border: 1px solid var(--standard);
+      }
+      .effort-high {
+        background: rgba(224, 164, 88, 0.15);
+        color: var(--high);
+        border: 1px solid var(--high);
+      }
+      .effort-xhigh {
+        background: rgba(201, 96, 62, 0.15);
+        color: var(--xhigh);
+        border: 1px solid var(--xhigh);
+      }
+      .effort-max {
+        background: rgba(224, 95, 143, 0.15);
+        color: var(--max);
+        border: 1px solid var(--max);
+      }
+      .token-badge {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-dim);
+        padding: 2px 8px;
+      }
+
+      .reasoning-toggle {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-dim);
+        cursor: pointer;
+        margin-top: 6px;
+        text-decoration: underline;
+        display: block;
+      }
+      .reasoning-panel {
+        display: none;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin-top: 6px;
+        white-space: pre-wrap;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .reasoning-panel.open {
+        display: block;
+      }
+      .reasoning-caveat {
+        font-style: italic;
+        color: var(--accent-dim);
+        margin-bottom: 6px;
+        display: block;
+      }
+
+      footer {
+        padding: 14px 24px 20px;
+        border-top: 1px solid var(--panel-line);
+        display: flex;
+        gap: 10px;
+      }
+      footer input[type="text"] {
+        flex: 1;
+        font-family: var(--sans);
+        font-size: 14px;
+        padding: 10px 14px;
+      }
+      footer button {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: var(--accent);
+        color: #241505;
+        border: none;
+        border-radius: 6px;
+        padding: 0 20px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      footer button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="eyebrow">Reasoning Models // Dynamic Effort Router</div>
+        <h1>Quantitative Analysis Console</h1>
+        <div class="row">
+          <span>api</span>
+          <input
+            id="base-url"
+            type="text"
+            value="http://localhost:8000"
+            size="22"
+          />
+          <span>·</span>
+          <span>force effort</span>
+          <select id="force-effort">
+            <option value="">auto (router decides)</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="log" id="log"></div>
+
+      <footer>
+        <input
+          id="input"
+          type="text"
+          placeholder="Ask a quantitative question…"
+          autocomplete="off"
+        />
+        <button id="send">Send</button>
+      </footer>
+    </div>
+
+    <script>
+      // Uses POST /chat (non-streaming), not /chat/stream — deliberately.
+      // This console's whole point is showing effort/thinking-token/reasoning-
+      // summary detail, which only the non-streaming response carries (see
+      // README). A production chat UI would use /chat/stream for perceived
+      // latency and skip this level of per-turn transparency for end users.
+
+      const logEl = document.getElementById("log");
+      const inputEl = document.getElementById("input");
+      const sendBtn = document.getElementById("send");
+      const baseUrlEl = document.getElementById("base-url");
+      const forceEffortEl = document.getElementById("force-effort");
+
+      function addTurn(role, text) {
+        const turn = document.createElement("div");
+        turn.className = `turn ${role}`;
+        turn.innerHTML = `<div><div class="who">${role === "user" ? "you" : "agent"}</div><div class="bubble"></div></div>`;
+        turn.querySelector(".bubble").textContent = text;
+        logEl.appendChild(turn);
+        logEl.scrollTop = logEl.scrollHeight;
+        return turn;
+      }
+
+      function renderDetail(turn, data) {
+        const wrap = turn.querySelector("div");
+
+        const badge = document.createElement("span");
+        badge.className = `effort-badge effort-${data.effort_used}`;
+        badge.textContent = `effort: ${data.effort_used}`;
+        wrap.appendChild(badge);
+
+        if (
+          data.thinking_tokens !== null &&
+          data.thinking_tokens !== undefined
+        ) {
+          const tokenBadge = document.createElement("span");
+          tokenBadge.className = "token-badge";
+          tokenBadge.textContent = `${data.thinking_tokens} thinking tokens billed`;
+          wrap.appendChild(tokenBadge);
+        }
+
+        if (data.reasoning_summary) {
+          const toggle = document.createElement("div");
+          toggle.className = "reasoning-toggle";
+          toggle.textContent = "▸ show reasoning summary";
+          const panel = document.createElement("div");
+          panel.className = "reasoning-panel";
+          panel.innerHTML =
+            '<span class="reasoning-caveat">Summary only — not a verified log of the model\'s actual computation. See guide §3.</span>';
+          panel.appendChild(document.createTextNode(data.reasoning_summary));
+          toggle.addEventListener("click", () => {
+            panel.classList.toggle("open");
+            toggle.textContent = panel.classList.contains("open")
+              ? "▾ hide reasoning summary"
+              : "▸ show reasoning summary";
+          });
+          wrap.appendChild(toggle);
+          wrap.appendChild(panel);
+        }
+      }
+
+      async function send() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+        sendBtn.disabled = true;
+        addTurn("user", text);
+
+        const agentTurn = addTurn("agent", "thinking…");
+        const bubble = agentTurn.querySelector(".bubble");
+
+        const body = { message: text };
+        if (forceEffortEl.value) body.force_effort = forceEffortEl.value;
+
+        try {
+          const res = await fetch(`${baseUrlEl.value}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            bubble.textContent = `Error: ${data.detail || res.statusText}`;
+            return;
+          }
+          bubble.textContent = data.message;
+          renderDetail(agentTurn, data);
+        } catch (err) {
+          bubble.textContent = `Connection error: ${err.message}`;
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      sendBtn.addEventListener("click", send);
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") send();
+      });
+    </script>
+  </body>
+</html>
