@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planning Patterns Console</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap");
+
+      :root {
+        --bg: #12141c;
+        --panel: #191c27;
+        --panel-line: #2a2e3d;
+        --text: #e8e6e1;
+        --text-dim: #8b8fa3;
+        --accent: #7fb0e0;
+        --accent-dim: #3d5a7a;
+        --agent: #4fa3a0;
+        --green: #5fbf8f;
+        --yellow: #e0c458;
+        --red: #c9603e;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        --sans: "Inter", -apple-system, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+      }
+
+      .shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px 24px 60px;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        text-transform: uppercase;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 4px 0 16px;
+        font-weight: 600;
+      }
+
+      .goal-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .goal-bar textarea {
+        flex: 1;
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--panel-line);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: var(--sans);
+        font-size: 14px;
+        resize: vertical;
+        min-height: 60px;
+      }
+      .goal-bar .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      button {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid var(--panel-line);
+        background: var(--panel);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 8px 14px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #0d1a26;
+        border: none;
+        font-weight: 700;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--accent-dim);
+      }
+
+      .columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+      }
+      .col {
+        background: var(--panel);
+        border: 1px solid var(--panel-line);
+        border-radius: 10px;
+        padding: 16px;
+        min-height: 200px;
+      }
+      .col h2 {
+        font-size: 13px;
+        font-family: var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--agent);
+        margin: 0 0 12px;
+      }
+      .col .status {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        margin-bottom: 10px;
+      }
+
+      .final-message {
+        background: rgba(79, 163, 160, 0.08);
+        border: 1px solid rgba(79, 163, 160, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 13.5px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        margin-bottom: 12px;
+      }
+
+      .todo-item,
+      .plan-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--panel-line);
+      }
+      .todo-item:last-child,
+      .plan-step:last-child {
+        border-bottom: none;
+      }
+      .badge {
+        font-size: 9px;
+        text-transform: uppercase;
+        padding: 1px 6px;
+        border-radius: 8px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .badge.completed {
+        background: rgba(95, 191, 143, 0.2);
+        color: var(--green);
+      }
+      .badge.pending {
+        background: rgba(224, 196, 88, 0.2);
+        color: var(--yellow);
+      }
+      .badge.in_progress {
+        background: rgba(127, 176, 224, 0.2);
+        color: var(--accent);
+      }
+      .badge.failed {
+        background: rgba(201, 96, 62, 0.2);
+        color: var(--red);
+      }
+      .step-deps {
+        color: var(--text-dim);
+        font-size: 10px;
+      }
+
+      .sections {
+        margin-top: 12px;
+      }
+      .sections .section {
+        margin-bottom: 8px;
+        font-size: 12.5px;
+      }
+      .sections .section b {
+        color: var(--accent);
+      }
+
+      .plan-review-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="eyebrow">
+        Planning & Goal Decomposition // Side-by-Side Console
+      </div>
+      <h1>Todo-List vs. Plan-and-Execute</h1>
+
+      <div class="goal-bar">
+        <textarea id="goal">
+Produce a QBR covering Marketing, Sales, Engineering Cloud Spend, and Support Ticket Volume. For each, note the Q2->Q3 percentage change and whether Q3 crosses the alert threshold. Recommend next steps for any department at or near its threshold.</textarea
+        >
+        <div class="actions">
+          <button class="primary" id="run-both">Run both</button>
+          <button id="preview-plan">Preview plan only</button>
+        </div>
+      </div>
+
+      <div class="columns">
+        <div class="col" id="todo-col">
+          <h2>Todo-list agent (TodoListMiddleware)</h2>
+          <div class="status" id="todo-status">idle</div>
+          <div id="todo-body"></div>
+        </div>
+        <div class="col" id="plan-col">
+          <h2>Plan-and-Execute graph</h2>
+          <div class="status" id="plan-status">idle</div>
+          <div id="plan-body"></div>
+          <div
+            class="plan-review-actions"
+            id="plan-review-actions"
+            style="display: none"
+          >
+            <button class="primary" id="approve-plan">
+              Approve & execute this plan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const goalEl = document.getElementById("goal");
+      const runBothBtn = document.getElementById("run-both");
+      const previewBtn = document.getElementById("preview-plan");
+      const todoStatus = document.getElementById("todo-status");
+      const todoBody = document.getElementById("todo-body");
+      const planStatus = document.getElementById("plan-status");
+      const planBody = document.getElementById("plan-body");
+      const planReviewActions = document.getElementById("plan-review-actions");
+      const approveBtn = document.getElementById("approve-plan");
+
+      const baseUrl = "http://localhost:8000";
+      let previewedPlan = null;
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function renderPlanSteps(steps) {
+        return steps
+          .map(
+            (s) => `
+      <div class="plan-step">
+        <span class="badge ${s.status}">${s.status}</span>
+        <div>
+          <div>${escapeHtml(s.description)} <span class="step-deps">(id: ${s.id}${s.depends_on.length ? ", depends on: " + s.depends_on.join(", ") : ""})</span></div>
+        </div>
+      </div>`,
+          )
+          .join("");
+      }
+
+      function renderSections(sections) {
+        if (!sections || !sections.length) return "";
+        return (
+          '<div class="sections">' +
+          sections
+            .map(
+              (s) =>
+                `<div class="section"><b>${escapeHtml(s.title)}:</b> ${escapeHtml(s.content)}</div>`,
+            )
+            .join("") +
+          "</div>"
+        );
+      }
+
+      async function runTodo(goal) {
+        todoStatus.textContent = "running…";
+        todoBody.innerHTML = "";
+        try {
+          const res = await fetch(`${baseUrl}/todo/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ goal }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            todoStatus.textContent = `error: ${data.detail || res.statusText}`;
+            return;
+          }
+
+          todoStatus.textContent = `done — ${data.todos_completed}/${data.todos_total} todos completed`;
+          let html = `<div class="final-message">${escapeHtml(data.message)}</div>`;
+          if (data.todos.length) {
+            html += data.todos
+              .map(
+                (t) => `
+          <div class="todo-item">
+            <span class="badge ${t.status}">${t.status}</span>
+            <div>${escapeHtml(t.content)}</div>
+          </div>`,
+              )
+              .join("");
+          }
+          html += renderSections(data.report_sections);
+          todoBody.innerHTML = html;
+        } catch (err) {
+          todoStatus.textContent = `connection error: ${err.message}`;
+        }
+      }
+
+      async function previewPlan(goal) {
+        planStatus.textContent = "planning…";
+        planBody.innerHTML = "";
+        planReviewActions.style.display = "none";
+        try {
+          const res = await fetch(`${baseUrl}/plan-execute/plan`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ goal }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            planStatus.textContent = `error: ${data.detail || res.statusText}`;
+            return;
+          }
+
+          previewedPlan = data.plan;
+          planStatus.textContent = `plan ready — ${data.plan.length} steps, awaiting approval`;
+          planBody.innerHTML = renderPlanSteps(data.plan);
+          planReviewActions.style.display = "flex";
+        } catch (err) {
+          planStatus.textContent = `connection error: ${err.message}`;
+        }
+      }
+
+      async function runPlanExecute(goal, plan) {
+        planStatus.textContent = "executing…";
+        planReviewActions.style.display = "none";
+        try {
+          const res = await fetch(`${baseUrl}/plan-execute/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ goal, plan }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            planStatus.textContent = `error: ${data.detail || res.statusText}`;
+            return;
+          }
+
+          planStatus.textContent = `done — ${data.replan_cycles} replan cycle(s)`;
+          let html = `<div class="final-message">${escapeHtml(data.final_message || "(no final message)")}</div>`;
+          html += renderPlanSteps(data.plan);
+          html += renderSections(data.report_sections);
+          planBody.innerHTML = html;
+        } catch (err) {
+          planStatus.textContent = `connection error: ${err.message}`;
+        }
+      }
+
+      runBothBtn.addEventListener("click", () => {
+        const goal = goalEl.value.trim();
+        if (!goal) return;
+        runTodo(goal);
+        runPlanExecute(goal, null); // fresh plan, no approval step in this quick-compare flow
+      });
+
+      previewBtn.addEventListener("click", () => {
+        const goal = goalEl.value.trim();
+        if (!goal) return;
+        previewPlan(goal);
+      });
+
+      approveBtn.addEventListener("click", () => {
+        const goal = goalEl.value.trim();
+        if (!goal || !previewedPlan) return;
+        runPlanExecute(goal, previewedPlan);
+      });
+    </script>
+  </body>
+</html>

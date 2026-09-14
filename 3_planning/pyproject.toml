@@ -1,0 +1,18 @@
+[project]
+name = "3-planning"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "langchain>=1.4.0",
+    "langchain-google-genai>=4.4.0",
+    "langgraph>=1.2.11",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "rich>=15.0.0",
+    "typing-extensions>=4.16.0",
+    "uvicorn[standard]>=0.52.4",
+]
