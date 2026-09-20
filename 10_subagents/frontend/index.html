@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — support console</title>
+    <style>
+      :root {
+        --paper: #f6f4ef;
+        --panel: #ffffff;
+        --ink: #1c2130;
+        --ink-soft: #5b5f6b;
+        --line: #dedad0;
+        --signal: #d98b2b;
+        --signal-soft: #f3e0c2;
+        --resolved: #2f6b5e;
+        --resolved-soft: #dceae6;
+        --danger: #b4432f;
+        --danger-soft: #f5ded8;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+        --sans: -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--line);
+        background: var(--paper);
+      }
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .brand-mark {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--ink-soft);
+        display: inline-block;
+        transition: background 0.25s ease;
+      }
+      .brand-mark.live {
+        background: var(--signal);
+        box-shadow: 0 0 0 4px var(--signal-soft);
+      }
+      .brand h1 {
+        font-size: 16px;
+        font-weight: 500;
+        margin: 0;
+        letter-spacing: 0.01em;
+      }
+      .brand .sub {
+        font-size: 12px;
+        color: var(--ink-soft);
+        font-family: var(--mono);
+      }
+
+      #settings-toggle {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-soft);
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      #settings-toggle:hover {
+        border-color: var(--ink-soft);
+        color: var(--ink);
+      }
+
+      #settings {
+        display: none;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      #settings.open {
+        display: flex;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 180px;
+        flex: 1;
+      }
+      .field label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--ink-soft);
+      }
+      .field input {
+        font-family: var(--mono);
+        font-size: 13px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--paper);
+        color: var(--ink);
+        outline: none;
+      }
+      .field input:focus {
+        border-color: var(--signal);
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+
+      #conversation {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      #log {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .empty-state {
+        margin: auto;
+        text-align: center;
+        color: var(--ink-soft);
+        max-width: 360px;
+      }
+      .empty-state p {
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .msg {
+        display: flex;
+        flex-direction: column;
+        max-width: 78%;
+      }
+      .msg.user {
+        align-self: flex-end;
+        align-items: flex-end;
+      }
+      .msg.agent {
+        align-self: flex-start;
+        align-items: flex-start;
+      }
+      .msg .bubble {
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+      .msg.user .bubble {
+        background: var(--ink);
+        color: var(--paper);
+        border-bottom-right-radius: 3px;
+      }
+      .msg.agent .bubble {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-bottom-left-radius: 3px;
+      }
+      .msg.error .bubble {
+        background: var(--danger-soft);
+        border: 1px solid var(--danger);
+        color: var(--danger);
+      }
+      .msg .meta {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--ink-soft);
+        margin-top: 4px;
+        padding: 0 2px;
+      }
+
+      .typing {
+        display: flex;
+        gap: 4px;
+        padding: 4px 2px;
+      }
+      .typing span {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--ink-soft);
+        animation: bounce 1.1s infinite ease-in-out;
+      }
+      .typing span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      @keyframes bounce {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.5;
+        }
+        30% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
+      }
+
+      #composer {
+        display: flex;
+        gap: 10px;
+        padding: 16px 20px;
+        border-top: 1px solid var(--line);
+        background: var(--panel);
+      }
+      #composer textarea {
+        flex: 1;
+        resize: none;
+        font-family: var(--sans);
+        font-size: 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        color: var(--ink);
+        outline: none;
+        line-height: 1.5;
+        max-height: 120px;
+      }
+      #composer textarea:focus {
+        border-color: var(--signal);
+      }
+      #composer button {
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 500;
+        background: var(--ink);
+        color: var(--paper);
+        border: none;
+        border-radius: 8px;
+        padding: 0 20px;
+        cursor: pointer;
+      }
+      #composer button:disabled {
+        background: var(--line);
+        color: var(--ink-soft);
+        cursor: default;
+      }
+      #composer button:not(:disabled):hover {
+        opacity: 0.85;
+      }
+
+      aside {
+        width: 240px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--line);
+        background: var(--panel);
+        padding: 20px 16px;
+        overflow-y: auto;
+      }
+      aside h2 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--ink-soft);
+        font-weight: 500;
+        margin: 0 0 12px;
+      }
+      .route {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 10px;
+        border-radius: 8px;
+        margin-bottom: 6px;
+        border: 1px solid transparent;
+        transition:
+          background 0.3s ease,
+          border-color 0.3s ease;
+      }
+      .route .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--line);
+        flex-shrink: 0;
+        transition:
+          background 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+      .route .label {
+        font-size: 13px;
+      }
+      .route .desc {
+        font-size: 11px;
+        color: var(--ink-soft);
+        font-family: var(--mono);
+      }
+      .route.pending .dot {
+        background: var(--signal);
+        box-shadow: 0 0 0 4px var(--signal-soft);
+        animation: pulse 1s infinite;
+      }
+      .route.pending {
+        background: var(--signal-soft);
+        border-color: var(--signal);
+      }
+      .route.used .dot {
+        background: var(--resolved);
+      }
+      .route.used {
+        background: var(--resolved-soft);
+        border-color: var(--resolved);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      #session-info {
+        margin-top: 24px;
+      }
+      #session-info dl {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      #session-info dt {
+        color: var(--ink-soft);
+        margin-top: 10px;
+      }
+      #session-info dd {
+        margin: 2px 0 0;
+        word-break: break-all;
+      }
+      #new-conversation {
+        margin-top: 16px;
+        width: 100%;
+        font-family: var(--mono);
+        font-size: 11px;
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px;
+        color: var(--ink-soft);
+        cursor: pointer;
+      }
+      #new-conversation:hover {
+        border-color: var(--ink-soft);
+        color: var(--ink);
+      }
+
+      @media (max-width: 720px) {
+        main {
+          flex-direction: column;
+        }
+        aside {
+          width: auto;
+          border-left: none;
+          border-top: 1px solid var(--line);
+          display: flex;
+          gap: 20px;
+          flex-wrap: wrap;
+        }
+        #session-info {
+          margin-top: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="brand-mark" id="brand-mark"></span>
+        <h1>Dispatch</h1>
+        <span class="sub">supervisor + subagents console</span>
+      </div>
+      <button id="settings-toggle" type="button">connection</button>
+    </header>
+
+    <div id="settings">
+      <div class="field">
+        <label for="api-base">API base URL</label>
+        <input id="api-base" type="text" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="api-key">X-API-Key</label>
+        <input
+          id="api-key"
+          type="password"
+          spellcheck="false"
+          placeholder="required"
+        />
+      </div>
+      <div class="field">
+        <label for="customer-id">Customer ID</label>
+        <input
+          id="customer-id"
+          type="text"
+          value="cust_001"
+          spellcheck="false"
+        />
+      </div>
+    </div>
+
+    <main>
+      <div id="conversation">
+        <div id="log">
+          <div class="empty-state" id="empty-state">
+            <p>
+              Set your API key under "connection" above, then send a message.<br />
+              Try: "I was charged twice, can you refund invoice INV-9001 for
+              $49?"
+            </p>
+          </div>
+        </div>
+        <form id="composer">
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Describe the issue…"
+            autofocus
+          ></textarea>
+          <button id="send" type="submit">Send</button>
+        </form>
+      </div>
+
+      <aside>
+        <h2>Routing</h2>
+        <div class="route" data-agent="billing">
+          <span class="dot"></span>
+          <div>
+            <div class="label">Billing</div>
+            <div class="desc">invoices, refunds</div>
+          </div>
+        </div>
+        <div class="route" data-agent="technical">
+          <span class="dot"></span>
+          <div>
+            <div class="label">Technical</div>
+            <div class="desc">bugs, troubleshooting</div>
+          </div>
+        </div>
+        <div class="route" data-agent="orders">
+          <span class="dot"></span>
+          <div>
+            <div class="label">Orders</div>
+            <div class="desc">status, tracking</div>
+          </div>
+        </div>
+
+        <div id="session-info">
+          <h2>Session</h2>
+          <dl>
+            <dt>session_id</dt>
+            <dd id="session-id-value">—</dd>
+            <dt>last routed</dt>
+            <dd id="last-routed-value">—</dd>
+          </dl>
+          <button id="new-conversation" type="button">
+            start new conversation
+          </button>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // In-memory only — deliberately not persisted to localStorage/sessionStorage,
+        // so nothing sensitive (the API key) survives a page reload or leaks across
+        // tabs. Re-enter it after a refresh.
+        const state = {
+          apiBase: window.location.origin,
+          apiKey: "",
+          customerId: "cust_001",
+          sessionId: null,
+        };
+
+        const el = {
+          apiBase: document.getElementById("api-base"),
+          apiKey: document.getElementById("api-key"),
+          customerId: document.getElementById("customer-id"),
+          settingsToggle: document.getElementById("settings-toggle"),
+          settings: document.getElementById("settings"),
+          brandMark: document.getElementById("brand-mark"),
+          log: document.getElementById("log"),
+          emptyState: document.getElementById("empty-state"),
+          composer: document.getElementById("composer"),
+          input: document.getElementById("input"),
+          send: document.getElementById("send"),
+          sessionIdValue: document.getElementById("session-id-value"),
+          lastRoutedValue: document.getElementById("last-routed-value"),
+          newConversation: document.getElementById("new-conversation"),
+          routes: Array.from(document.querySelectorAll(".route")),
+        };
+
+        el.apiBase.value = state.apiBase;
+
+        el.settingsToggle.addEventListener("click", () => {
+          el.settings.classList.toggle("open");
+        });
+        el.apiBase.addEventListener("input", (e) => {
+          state.apiBase = e.target.value.trim();
+        });
+        el.apiKey.addEventListener("input", (e) => {
+          state.apiKey = e.target.value;
+        });
+        el.customerId.addEventListener("input", (e) => {
+          state.customerId = e.target.value.trim();
+        });
+
+        el.input.addEventListener("input", () => {
+          el.input.style.height = "auto";
+          el.input.style.height = Math.min(el.input.scrollHeight, 120) + "px";
+        });
+        el.input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            el.composer.requestSubmit();
+          }
+        });
+
+        function appendMessage(role, text) {
+          if (el.emptyState) {
+            el.emptyState.remove();
+            el.emptyState = null;
+          }
+          const wrap = document.createElement("div");
+          wrap.className = "msg " + role;
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = text;
+          wrap.appendChild(bubble);
+          el.log.appendChild(wrap);
+          el.log.scrollTop = el.log.scrollHeight;
+          return wrap;
+        }
+
+        function appendTyping() {
+          if (el.emptyState) {
+            el.emptyState.remove();
+            el.emptyState = null;
+          }
+          const wrap = document.createElement("div");
+          wrap.className = "msg agent";
+          wrap.id = "typing-indicator";
+          wrap.innerHTML =
+            '<div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+          el.log.appendChild(wrap);
+          el.log.scrollTop = el.log.scrollHeight;
+          return wrap;
+        }
+
+        function setRoutingPending(pending) {
+          el.routes.forEach((r) => r.classList.toggle("pending", pending));
+          el.brandMark.classList.toggle("live", pending);
+        }
+
+        function markRoutesUsed(subagentsUsed) {
+          el.routes.forEach((r) => {
+            r.classList.remove("pending");
+            r.classList.toggle("used", subagentsUsed.includes(r.dataset.agent));
+          });
+          el.lastRoutedValue.textContent = subagentsUsed.length
+            ? subagentsUsed.join(", ")
+            : "none (handled directly)";
+        }
+
+        function clearRoutesUsed() {
+          el.routes.forEach((r) => r.classList.remove("used", "pending"));
+        }
+
+        async function sendMessage(message) {
+          if (!state.apiKey) {
+            appendMessage(
+              "error",
+              'Set an X-API-Key under "connection" before sending a message.',
+            );
+            el.settings.classList.add("open");
+            return;
+          }
+
+          appendMessage("user", message);
+          setRoutingPending(true);
+          const typingEl = appendTyping();
+          el.send.disabled = true;
+
+          const payload = {
+            customer_id: state.customerId || "cust_001",
+            message: message,
+          };
+          if (state.sessionId) payload.session_id = state.sessionId;
+
+          try {
+            const response = await fetch(
+              state.apiBase.replace(/\/$/, "") + "/support",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-API-Key": state.apiKey,
+                },
+                body: JSON.stringify(payload),
+              },
+            );
+
+            typingEl.remove();
+            setRoutingPending(false);
+
+            if (!response.ok) {
+              const body = await response.json().catch(() => ({}));
+              const detail =
+                body.detail || body.error || "HTTP " + response.status;
+              appendMessage("error", "Request failed: " + detail);
+              return;
+            }
+
+            const data = await response.json();
+            state.sessionId = data.session_id;
+            el.sessionIdValue.textContent = data.session_id;
+            markRoutesUsed(data.subagents_used || []);
+            appendMessage("agent", data.reply);
+          } catch (err) {
+            typingEl.remove();
+            setRoutingPending(false);
+            appendMessage(
+              "error",
+              "Could not reach the API at " +
+                state.apiBase +
+                ". Is the server running?",
+            );
+          } finally {
+            el.send.disabled = false;
+            el.input.focus();
+          }
+        }
+
+        el.composer.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const message = el.input.value.trim();
+          if (!message) return;
+          el.input.value = "";
+          el.input.style.height = "auto";
+          sendMessage(message);
+        });
+
+        el.newConversation.addEventListener("click", () => {
+          state.sessionId = null;
+          el.sessionIdValue.textContent = "—";
+          el.lastRoutedValue.textContent = "—";
+          clearRoutesUsed();
+          el.log.innerHTML = "";
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.id = "empty-state";
+          empty.innerHTML =
+            "<p>New conversation started. Send a message to begin.</p>";
+          el.log.appendChild(empty);
+          el.emptyState = empty;
+          el.input.focus();
+        });
+      })();
+    </script>
+  </body>
+</html>
