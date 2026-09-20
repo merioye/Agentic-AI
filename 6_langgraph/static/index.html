@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Approval Copilot</title>
+    <style>
+      :root {
+        --bg: #f5f6f8;
+        --surface: #ffffff;
+        --border: #e2e4e9;
+        --text: #16181d;
+        --text-muted: #6b7280;
+        --accent: #3b5bdb;
+        --danger: #b3261e;
+        --success: #0f6e56;
+        --warning: #a86400;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121317;
+          --surface: #1b1d23;
+          --border: #2a2d35;
+          --text: #eceef2;
+          --text-muted: #9aa0ab;
+          --accent: #6a8bff;
+          --danger: #ff8a80;
+          --success: #4fd1a5;
+          --warning: #ffc266;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 24px;
+      }
+      .layout {
+        max-width: 920px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      .subtitle {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+      }
+      .card h2 {
+        font-size: 14px;
+        margin: 0 0 12px;
+      }
+      label {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 4px;
+      }
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+        outline: none;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      .row-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr 1.6fr auto auto;
+        gap: 10px;
+        align-items: end;
+        margin-bottom: 10px;
+      }
+      .checkbox-cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding-bottom: 8px;
+      }
+      .checkbox-cell label {
+        margin: 0;
+      }
+      button {
+        padding: 9px 16px;
+        border-radius: 8px;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: var(--border);
+        color: var(--text);
+      }
+      button.danger {
+        background: var(--danger);
+        color: #fff;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.icon-btn {
+        padding: 6px 10px;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      #log {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13px;
+        min-height: 20px;
+      }
+      .log-line {
+        color: var(--text-muted);
+      }
+      .log-line.flag-yes {
+        color: var(--warning);
+      }
+      .log-line.flag-no {
+        color: var(--success);
+      }
+      #approval-card {
+        display: none;
+        border-color: var(--warning);
+      }
+      #approval-card ul {
+        margin: 8px 0;
+        padding-left: 18px;
+        font-size: 13px;
+      }
+      #result-card {
+        display: none;
+      }
+      #result-card.approved {
+        border-color: var(--success);
+      }
+      #result-card.rejected {
+        border-color: var(--danger);
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .badge.approved {
+        background: rgba(15, 110, 86, 0.15);
+        color: var(--success);
+      }
+      .badge.rejected {
+        background: rgba(179, 38, 30, 0.15);
+        color: var(--danger);
+      }
+      #history-list,
+      #timeline-list {
+        font-size: 13px;
+      }
+      #history-list div,
+      #timeline-list div {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .inline-form {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .inline-form input {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div>
+        <h1>Expense approval copilot</h1>
+        <div class="subtitle">
+          LangGraph pipeline: parallel line-item review &middot;
+          human-in-the-loop approval &middot; long-term memory
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Submit a report</h2>
+        <label for="employee">Employee</label>
+        <input
+          id="employee"
+          type="text"
+          placeholder="e.g. jordan.lee"
+          style="margin-bottom: 14px"
+        />
+
+        <div id="items"></div>
+        <button type="button" class="secondary icon-btn" onclick="addItemRow()">
+          + Add line item
+        </button>
+
+        <div class="actions">
+          <button id="submit-btn" onclick="submitReport()">
+            Submit report
+          </button>
+        </div>
+      </div>
+
+      <div class="card" id="progress-card" style="display: none">
+        <h2>Progress</h2>
+        <div id="log"></div>
+      </div>
+
+      <div class="card" id="approval-card">
+        <h2>Approval needed</h2>
+        <div
+          id="approval-summary"
+          style="font-size: 13px; margin-bottom: 8px"
+        ></div>
+        <ul id="flagged-list"></ul>
+        <label for="note">Note (optional)</label>
+        <textarea id="note" rows="2" style="margin-bottom: 10px"></textarea>
+        <div class="actions">
+          <button onclick="resolveApproval('approved')">Approve</button>
+          <button class="danger" onclick="resolveApproval('rejected')">
+            Reject
+          </button>
+        </div>
+      </div>
+
+      <div class="card" id="result-card">
+        <h2>Result <span id="result-badge" class="badge"></span></h2>
+        <div id="result-body" style="font-size: 13px"></div>
+        <button
+          class="secondary icon-btn"
+          style="margin-top: 10px"
+          onclick="loadTimeline()"
+        >
+          View checkpoint timeline
+        </button>
+        <div id="timeline-list"></div>
+      </div>
+
+      <div class="card">
+        <h2>Approval history</h2>
+        <div class="inline-form">
+          <input
+            id="history-employee"
+            type="text"
+            placeholder="employee name"
+          />
+          <button class="secondary" onclick="loadHistory()">Load</button>
+        </div>
+        <div id="history-list"></div>
+      </div>
+    </div>
+
+    <script>
+      let itemCount = 0;
+      let currentThreadId = null;
+
+      function addItemRow(values) {
+        itemCount += 1;
+        const id = `item-row-${itemCount}`;
+        const wrap = document.createElement("div");
+        wrap.className = "row-grid";
+        wrap.id = id;
+        wrap.innerHTML = `
+    <div><label>Category</label>
+      <select class="f-category">
+        <option value="travel">Travel</option>
+        <option value="meals">Meals</option>
+        <option value="entertainment">Entertainment</option>
+        <option value="software">Software</option>
+        <option value="office supplies">Office supplies</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div><label>Amount ($)</label><input class="f-amount" type="number" min="0.01" step="0.01" placeholder="0.00" /></div>
+    <div><label>Description</label><input class="f-description" type="text" placeholder="What was it for?" /></div>
+    <div class="checkbox-cell"><input class="f-receipt" type="checkbox" id="${id}-r" /><label for="${id}-r">Receipt</label></div>
+    <div><button type="button" class="secondary icon-btn" onclick="document.getElementById('${id}').remove()">Remove</button></div>
+  `;
+        document.getElementById("items").appendChild(wrap);
+      }
+      addItemRow();
+
+      function collectLineItems() {
+        return Array.from(document.querySelectorAll("#items .row-grid")).map(
+          (row) => ({
+            category: row.querySelector(".f-category").value,
+            amount: parseFloat(row.querySelector(".f-amount").value || "0"),
+            description: row.querySelector(".f-description").value.trim(),
+            has_receipt: row.querySelector(".f-receipt").checked,
+          }),
+        );
+      }
+
+      function logLine(text, cls) {
+        const el = document.createElement("div");
+        el.className = "log-line" + (cls ? ` ${cls}` : "");
+        el.textContent = text;
+        document.getElementById("log").appendChild(el);
+      }
+
+      function resetPanels() {
+        document.getElementById("log").innerHTML = "";
+        document.getElementById("progress-card").style.display = "block";
+        document.getElementById("approval-card").style.display = "none";
+        document.getElementById("result-card").style.display = "none";
+        document.getElementById("timeline-list").innerHTML = "";
+      }
+
+      async function consumeStream(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop();
+
+          for (const frame of frames) {
+            const line = frame.trim();
+            if (!line.startsWith("data:")) continue;
+            let event;
+            try {
+              event = JSON.parse(line.slice(5).trim());
+            } catch {
+              continue;
+            }
+            handleEvent(event);
+          }
+        }
+      }
+
+      function handleEvent(event) {
+        if (event.type === "session") {
+          currentThreadId = event.thread_id;
+          logLine(`Report ${event.report_id} created.`);
+        } else if (event.type === "status") {
+          if (event.event === "reviewing_item") {
+            logLine(`Reviewing ${event.category} item...`);
+          } else if (event.event === "item_reviewed") {
+            logLine(
+              event.requires_approval
+                ? `  -> flagged: ${event.reason}`
+                : `  -> ok: ${event.reason}`,
+              event.requires_approval ? "flag-yes" : "flag-no",
+            );
+          } else if (event.event === "aggregated") {
+            logLine(
+              `All items reviewed. Total $${event.total_amount.toFixed(2)}, ${event.flags} flagged.`,
+            );
+          }
+        } else if (event.type === "node_complete") {
+          logLine(`[${event.node}] complete`);
+        } else if (event.type === "approval_required") {
+          document.getElementById("approval-summary").textContent =
+            `${event.employee}'s report totals $${event.total_amount.toFixed(2)} and needs approval.`;
+          const list = document.getElementById("flagged-list");
+          list.innerHTML = "";
+          event.flagged_items.forEach((f) => {
+            const li = document.createElement("li");
+            li.textContent = `${f.category} - $${f.amount.toFixed(2)}: ${f.reason}`;
+            list.appendChild(li);
+          });
+          document.getElementById("approval-card").style.display = "block";
+        } else if (event.type === "result") {
+          const card = document.getElementById("result-card");
+          card.className = "card " + event.decision;
+          document.getElementById("result-badge").textContent = event.decision;
+          document.getElementById("result-badge").className =
+            "badge " + event.decision;
+          document.getElementById("result-body").innerHTML = `
+      <div>Total: $${event.total_amount.toFixed(2)}</div>
+      <div>Reason: ${event.decision_reason || "-"}</div>
+    `;
+          card.style.display = "block";
+          document.getElementById("approval-card").style.display = "none";
+        } else if (event.type === "error") {
+          logLine(`Error: ${event.message}`, "flag-yes");
+        }
+      }
+
+      async function submitReport() {
+        const employee = document.getElementById("employee").value.trim();
+        const line_items = collectLineItems();
+        if (!employee || line_items.length === 0) {
+          alert("Enter an employee name and at least one line item.");
+          return;
+        }
+        resetPanels();
+        document.getElementById("submit-btn").disabled = true;
+
+        try {
+          const response = await fetch("/api/expense/submit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ employee, line_items }),
+          });
+          if (!response.ok || !response.body) {
+            logLine("Submit failed.", "flag-yes");
+            return;
+          }
+          await consumeStream(response);
+        } finally {
+          document.getElementById("submit-btn").disabled = false;
+        }
+      }
+
+      async function resolveApproval(decision) {
+        if (!currentThreadId) return;
+        const note = document.getElementById("note").value.trim();
+        const buttons = document.querySelectorAll("#approval-card button");
+        buttons.forEach((b) => (b.disabled = true));
+
+        try {
+          const response = await fetch("/api/expense/resume", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              thread_id: currentThreadId,
+              decision,
+              note,
+            }),
+          });
+          if (!response.ok || !response.body) {
+            logLine("Resume failed.", "flag-yes");
+            return;
+          }
+          await consumeStream(response);
+        } finally {
+          buttons.forEach((b) => (b.disabled = false));
+        }
+      }
+
+      async function loadTimeline() {
+        if (!currentThreadId) return;
+        const res = await fetch(`/api/expense/${currentThreadId}/timeline`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const el = document.getElementById("timeline-list");
+        el.innerHTML = data.steps
+          .map(
+            (s) =>
+              `<div>step ${s.step}: next -> ${s.next_node ? s.next_node.join(", ") : "END"}${s.decision ? " (decision: " + s.decision + ")" : ""}</div>`,
+          )
+          .join("");
+      }
+
+      async function loadHistory() {
+        const employee = document
+          .getElementById("history-employee")
+          .value.trim();
+        if (!employee) return;
+        const res = await fetch(
+          `/api/expense/history/${encodeURIComponent(employee)}`,
+        );
+        const el = document.getElementById("history-list");
+        if (!res.ok) {
+          el.innerHTML = "<div>No history found.</div>";
+          return;
+        }
+        const data = await res.json();
+        if (data.items.length === 0) {
+          el.innerHTML = "<div>No past decisions recorded yet.</div>";
+          return;
+        }
+        el.innerHTML = data.items
+          .map(
+            (i) =>
+              `<div>${i.category} - $${i.amount.toFixed(2)} - ${i.decision} (${i.report_id})</div>`,
+          )
+          .join("");
+      }
+    </script>
+  </body>
+</html>
